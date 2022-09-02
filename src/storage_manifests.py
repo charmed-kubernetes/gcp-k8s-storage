@@ -1,14 +1,19 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 """Implementation of gcp specific details of the kubernetes manifests."""
-import base64
 import logging
 import pickle
 from hashlib import md5
 from typing import Dict, Optional
 
 from lightkube.codecs import AnyResource, from_dict
-from ops.manifests import Addition, CreateNamespace, ConfigRegistry, ManifestLabel, Manifests
+from ops.manifests import (
+    Addition,
+    ConfigRegistry,
+    CreateNamespace,
+    ManifestLabel,
+    Manifests,
+)
 
 log = logging.getLogger(__file__)
 NAMESPACE = "gce-pd-csi-driver"

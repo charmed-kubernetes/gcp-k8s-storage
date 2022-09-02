@@ -142,7 +142,11 @@ def gather_releases(source: str) -> Tuple[str, Set[Release]]:
                     if (
                         VERSION_RE.match(item["name"])
                         and not version_parser(item["name"][1:]).prerelease
-                        and (version_parser(context["minimum"][1:]) <= version_parser(item["name"][1:]) < version_parser(context["maximum"][1:]))
+                        and (
+                            version_parser(context["minimum"][1:])
+                            <= version_parser(item["name"][1:])
+                            < version_parser(context["maximum"][1:])
+                        )
                     )
                 ],
                 key=lambda r: version_parser(r.name[1:]),

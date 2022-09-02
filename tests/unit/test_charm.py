@@ -15,8 +15,8 @@ from ops.testing import Harness
 
 from charm import GcpCloudProviderCharm
 
-CLOUD_SA_1 = base64.b64encode(json.dumps({"key":"value1"}).encode()).decode()
-CLOUD_SA_2 = base64.b64encode(json.dumps({"key":"value2"}).encode()).decode()
+CLOUD_SA_1 = base64.b64encode(json.dumps({"key": "value1"}).encode()).decode()
+CLOUD_SA_2 = base64.b64encode(json.dumps({"key": "value2"}).encode()).decode()
 
 
 @pytest.fixture

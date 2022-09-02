@@ -2,15 +2,15 @@
 # See LICENSE file for licensing details.
 """Config Management for the gcp cloud provider charm."""
 
+import base64
 import binascii
 import json
 import logging
 import subprocess
-import base64
 from typing import Optional
 
 import yaml
-from pydantic import BaseModel, Field, SecretStr, validator, ValidationError
+from pydantic import BaseModel, Field, SecretStr, ValidationError, validator
 
 log = logging.getLogger(__name__)
 
@@ -21,8 +21,8 @@ class Credentials(BaseModel):
     cloud_sa: SecretStr = Field(min_length=1)
 
     @validator("cloud_sa")
-    def must_be_base64(cls, s: SecretStr):
-        """Validate cloud-sa is base64 encoded """
+    def must_be_base64(self, s: SecretStr):
+        """Validate cloud-sa is base64 encoded json."""
         secret_val = s.get_secret_value()
         try:
             d = base64.b64decode(secret_val.encode())
