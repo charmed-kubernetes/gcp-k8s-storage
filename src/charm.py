@@ -15,6 +15,7 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 
 from config import CharmConfig
 from requires_certificates import CertificatesRequires
+from requires_integrator import GCPIntegratorRequires
 from storage_manifests import GCPStorageManifests
 
 log = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class GcpCloudProviderCharm(CharmBase):
         # Relation Validator and datastore
         self.kube_control = KubeControlRequirer(self)
         self.certificates = CertificatesRequires(self)
+        self.integrator = GCPIntegratorRequires(self)
         # Config Validator and datastore
         self.charm_config = CharmConfig(self)
 
@@ -42,7 +44,7 @@ class GcpCloudProviderCharm(CharmBase):
             deployed=False,  # True if the config has been applied after new hash
         )
         self.collector = Collector(
-            GCPStorageManifests(self, self.charm_config, self.kube_control),
+            GCPStorageManifests(self, self.charm_config, self.kube_control, self.integrator),
         )
 
         self.framework.observe(self.on.kube_control_relation_created, self._kube_control)
@@ -54,7 +56,8 @@ class GcpCloudProviderCharm(CharmBase):
         self.framework.observe(self.on.certificates_relation_changed, self._merge_config)
         self.framework.observe(self.on.certificates_relation_broken, self._merge_config)
 
-        self.framework.observe(self.on.gcp_integration_relation_joined, self._merge_config)
+        self.framework.observe(self.on.gcp_integration_relation_joined, self._request_gcp_features)
+        self.framework.observe(self.on.gcp_integration_relation_changed, self._merge_config)
         self.framework.observe(self.on.gcp_integration_relation_broken, self._merge_config)
 
         self.framework.observe(self.on.list_versions_action, self._list_versions)
@@ -80,6 +83,10 @@ class GcpCloudProviderCharm(CharmBase):
         resources = event.params.get("resources", "")
         return self.collector.scrub_resources(event, manifests, resources)
 
+    def _request_gcp_features(self, event):
+        self.integrator.enable_block_storage_management()
+        self._merge_config(event=event)
+
     def _update_status(self, _):
         if not self.stored.deployed:
             return
@@ -95,6 +102,17 @@ class GcpCloudProviderCharm(CharmBase):
     def _kube_control(self, event=None):
         self.kube_control.set_auth_request(self.unit.name)
         return self._merge_config(event)
+
+    def _check_integrator(self, event):
+        self.unit.status = MaintenanceStatus("Evaluating GCP relation.")
+        evaluation = self.integrator.evaluate_relation(event)
+        if evaluation:
+            if "Waiting" in evaluation:
+                self.unit.status = WaitingStatus(evaluation)
+            else:
+                self.unit.status = BlockedStatus(evaluation)
+            return False
+        return True
 
     def _check_kube_control(self, event):
         self.unit.status = MaintenanceStatus("Evaluating kubernetes authentication.")
@@ -137,6 +155,9 @@ class GcpCloudProviderCharm(CharmBase):
         return True
 
     def _merge_config(self, event=None):
+        if not self._check_integrator(event):
+            return
+
         if not self._check_certificates(event):
             return
 

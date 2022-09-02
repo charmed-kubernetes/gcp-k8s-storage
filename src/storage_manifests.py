@@ -76,7 +76,7 @@ class CreateStorageClass(Addition):
 class GCPStorageManifests(Manifests):
     """Deployment Specific details for the gce-pd-csi-driver."""
 
-    def __init__(self, charm, charm_config, kube_control):
+    def __init__(self, charm, charm_config, kube_control, integrator):
         super().__init__(
             "gce-pd-csi-driver",
             charm.model,
@@ -89,6 +89,7 @@ class GCPStorageManifests(Manifests):
                 CreateStorageClass(self, "default"),  # creates gce-pd-csi-driver
             ],
         )
+        self.integrator = integrator
         self.charm_config = charm_config
         self.kube_control = kube_control
 
@@ -100,8 +101,10 @@ class GCPStorageManifests(Manifests):
         if self.kube_control.is_ready:
             config["image-registry"] = self.kube_control.get_registry_location()
 
+        if self.integrator.is_ready:
+            config["cloud_sa"] = self.integrator.credentials.cloud_sa.get_secret_value()
+
         config.update(**self.charm_config.available_data)
-        config.update(**{k: v.get_secret_value() for k, v in self.charm_config.credentials})
 
         for key, value in dict(**config).items():
             if value == "" or value is None:

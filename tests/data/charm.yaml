@@ -10,7 +10,6 @@ applications:
     trust: true
   gcp-cloud-provider:
     charm: {{charm}}
-    trust: true
 relations:
 - - gcp-cloud-provider:certificates
   - easyrsa:client
