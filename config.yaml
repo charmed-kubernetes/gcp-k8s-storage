@@ -1,0 +1,44 @@
+options:
+  cloud-sa:
+    description: |
+      A Service Account key file.
+      base64 encoded version of the cloud-sa.json 
+
+      juju config gcp-cloud-provider cloud-sa="$(base64 -w0 < cloud-sa.json)"
+
+      It is strongly recommended that you use 'juju trust' instead, if available.
+    type: string
+    default: ""
+
+  image-registry:
+    type: string
+    description: |
+      Source registry of metrics server images.
+
+      By setting to a value, each image listed in the releases manifest
+      has its image-registry replaced.
+
+      If unset, the manifests will use the image registry from the kube-control relation
+
+      example)
+        juju config kubernetes-metrics-server image-registry='rocks.canonical.com:443/cdk'
+
+        juju config kubernetes-metrics-server --reset image-registry
+
+  storage-release:
+    type: string
+    description: |
+      Specify the version of storage-provider as defined by the `release`
+      tags of https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver
+
+      example)
+        juju config gcp-cloud-provider storage-release='v1.7.3'
+      
+      A list of supported versions is available through the action:
+        juju run-action gcp-cloud-provider/0 list-releases --wait
+      
+      To reset by to the latest supported by the charm use:
+        juju config gcp-cloud-provider --reset storage-release
+      
+      The current release deployed is available by viewing
+        juju status gcp-cloud-provider

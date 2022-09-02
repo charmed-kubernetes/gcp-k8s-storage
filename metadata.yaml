@@ -1,0 +1,24 @@
+# Copyright 2022 Canonical, Ltd.
+# See LICENSE file for licensing details.
+name: gcp-cloud-provider
+display-name: GCP Cloud Provider
+summary: Runs the GCP Cloud Provider in the cluster.
+docs: https://discourse.charmhub.io/t/gcp-cloud-provider-docs-index/???
+description: >-
+  The GCP cloud provider provides the Kubernetes cluster access to
+  native resources from GCP such as storage and loadbalancers.
+subordinate: true
+tags:
+  - kubernetes
+  - cloud-provider
+  - gcp
+requires:
+  gcp-integration:
+    interface: gcp-integration
+    scope: container
+    limit: 1
+  kube-control:
+    interface: kube-control
+    limit: 1
+  certificates:
+    interface: tls-certificates
