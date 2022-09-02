@@ -21,7 +21,7 @@ class Credentials(BaseModel):
     cloud_sa: SecretStr = Field(min_length=1)
 
     @validator("cloud_sa")
-    def must_be_base64(self, s: SecretStr):
+    def must_be_base64(cls, s: SecretStr):
         """Validate cloud-sa is base64 encoded json."""
         secret_val = s.get_secret_value()
         try:
