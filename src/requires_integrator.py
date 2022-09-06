@@ -18,9 +18,7 @@ from urllib.request import Request, urlopen
 from backports.cached_property import cached_property
 from ops.charm import RelationBrokenEvent
 from ops.framework import Object, StoredState
-from pydantic import BaseModel, Json, SecretStr, ValidationError
-
-from cloud_credentials import Credentials, CredentialsError
+from pydantic import BaseModel, Json, SecretStr, ValidationError, validator
 
 log = logging.getLogger(__name__)
 
@@ -31,8 +29,20 @@ READ_BLOCK_SIZE = 2048
 
 
 class Data(BaseModel):
+    """Databag for information shared over the relation."""
+
     completed: Json[Mapping[str, str]]
     credentials: SecretStr
+
+    @validator("credentials")
+    def must_be_json(cls, s: SecretStr):
+        """Validate cloud-sa is base64 encoded json."""
+        secret_val = s.get_secret_value()
+        try:
+            json.loads(secret_val)
+        except json.JSONDecodeError:
+            raise ValueError("Couldn't find json data")
+        return s
 
 
 class GCPIntegratorRequires(Object):
@@ -93,9 +103,7 @@ class GCPIntegratorRequires(Object):
 
     @property
     def instance(self):
-        """
-        This unit's instance name.
-        """
+        """This unit's instance name."""
         if self.stored.instance is None:
             req = Request(self._instance_url, headers=self._metadata_headers)
             with urlopen(req) as fd:
@@ -105,9 +113,7 @@ class GCPIntegratorRequires(Object):
 
     @property
     def zone(self):
-        """
-        The zone this unit is in.
-        """
+        """The zone this unit is in."""
         if self.stored.zone is None:
             req = Request(self._zone_url, headers=self._metadata_headers)
             with urlopen(req) as fd:
@@ -140,11 +146,11 @@ class GCPIntegratorRequires(Object):
         to_publish["requested"] = nonce
 
     @property
-    def credentials(self) -> Optional[Credentials]:
+    def credentials(self) -> Optional[bytes]:
         """Return credentials from integrator charm."""
         if not self.is_ready:
             return None
-        return Credentials(cloud_sa=base64.b64encode(self._raw_data["credentials"].encode()))
+        return base64.b64encode(self._data.credentials.get_secret_value().encode())
 
     def enable_block_storage_management(self):
         """Request the ability to manage block storage."""

@@ -102,7 +102,7 @@ class GCPStorageManifests(Manifests):
             config["image-registry"] = self.kube_control.get_registry_location()
 
         if self.integrator.is_ready:
-            config["cloud_sa"] = self.integrator.credentials.cloud_sa.get_secret_value()
+            config["cloud_sa"] = self.integrator.credentials.decode()
 
         config.update(**self.charm_config.available_data)
 

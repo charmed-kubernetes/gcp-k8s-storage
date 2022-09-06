@@ -36,6 +36,15 @@ def mock_ca_cert(tmpdir):
 
 
 @pytest.fixture()
+def integrator():
+    with mock.patch("charm.GCPIntegratorRequires") as mocked:
+        integrator = mocked.return_value
+        integrator.evaluate_relation.return_value = None
+        integrator.credentials = b"abc"
+        yield integrator
+
+
+@pytest.fixture()
 def certificates():
     with mock.patch("charm.CertificatesRequires") as mocked:
         certificates = mocked.return_value
@@ -57,6 +66,7 @@ def kube_control():
         yield kube_control
 
 
+@pytest.mark.usefixtures("integrator")
 def test_waits_for_certificates(harness):
     harness.begin_with_initial_hooks()
     charm = harness.charm
@@ -84,8 +94,8 @@ def test_waits_for_certificates(harness):
 
 
 @mock.patch("ops.interface_kube_control.KubeControlRequirer.create_kubeconfig")
-@pytest.mark.usefixtures("certificates")
-def test_waits_for_kube_control(mock_create_kubeconfig, harness):
+@pytest.mark.usefixtures("integrator", "certificates")
+def test_waits_for_kube_control(mock_create_kubeconfig, harness, caplog):
     harness.begin_with_initial_hooks()
     charm = harness.charm
     assert isinstance(charm.unit.status, BlockedStatus)
@@ -104,6 +114,7 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness):
     assert charm.unit.status.message == "Waiting for kube-control relation"
     mock_create_kubeconfig.assert_not_called()
 
+    caplog.clear()
     harness.update_relation_data(
         rel_id,
         "kubernetes-control-plane/0",
@@ -115,32 +126,12 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness):
             mock.call(charm.CA_CERT_PATH, "/home/ubuntu/.kube/config", "ubuntu", charm.unit.name),
         ]
     )
-    assert isinstance(charm.unit.status, BlockedStatus)
-    assert charm.unit.status.message == "missing credentials; set via config"
+    assert charm.unit.status == MaintenanceStatus("Deploying GCP Cloud Provider")
+    storage_messages = {r.message for r in caplog.records if "storage" in r.filename}
 
+    assert storage_messages == {
+        "Encode secret data for storage.",
+        "Creating storage class csi-gce-pd-default",
+    }
 
-@pytest.mark.usefixtures("certificates", "kube_control")
-def test_waits_for_config(harness: Harness, lk_client, caplog):
-    harness.begin_with_initial_hooks()
-    with mock.patch.object(lk_client, "list") as mock_list:
-        mock_list.return_value = [mock.Mock(**{"metadata.annotations": {}})]
-        caplog.clear()
-        harness.update_config({"cloud-sa": CLOUD_SA_1})
-        charm = harness.charm
-        assert isinstance(charm.unit.status, MaintenanceStatus), charm.unit.status
-
-        storage_messages = {r.message for r in caplog.records if "storage" in r.filename}
-
-        assert storage_messages == {
-            "Encode secret data for storage.",
-            "Creating storage class csi-gce-pd-default",
-        }
-
-        caplog.clear()
-        harness.update_config({"cloud-sa": CLOUD_SA_2})
-        storage_messages = {r.message for r in caplog.records if "storage" in r.filename}
-
-        assert storage_messages == {
-            "Encode secret data for storage.",
-            "Creating storage class csi-gce-pd-default",
-        }
+    caplog.clear()
