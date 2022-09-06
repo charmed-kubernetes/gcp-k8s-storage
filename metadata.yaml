@@ -1,16 +1,17 @@
 # Copyright 2022 Canonical, Ltd.
 # See LICENSE file for licensing details.
-name: gcp-cloud-provider
-display-name: GCP Cloud Provider
-summary: Runs the GCP Cloud Provider in the cluster.
-docs: https://discourse.charmhub.io/t/gcp-cloud-provider-docs-index/???
+name: gcp-k8s-storage
+display-name: Google Cloud Platform Storage Driver
+summary: Runs the GCP Storage Driver in the kubernetes cluster.
+docs: https://discourse.charmhub.io/t/gcp-storage-driver-docs-index/???
 description: >-
-  The GCP cloud provider provides the Kubernetes cluster access to
-  native resources from GCP such as storage and loadbalancers.
+  This charm manages installation of the out of tree csi driver from google
+  kubernetes-sigs/gcp-compute-persistent-disk-csi-driver such that charmed
+  kubernetes can use its storage features.
 subordinate: true
 tags:
   - kubernetes
-  - cloud-provider
+  - csi
   - gcp
 requires:
   gcp-integration:

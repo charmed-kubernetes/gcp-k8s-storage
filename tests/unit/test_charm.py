@@ -13,7 +13,7 @@ import yaml
 from ops.model import BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.testing import Harness
 
-from charm import GcpCloudProviderCharm
+from charm import GcpK8sStorageCharm
 
 CLOUD_SA_1 = base64.b64encode(json.dumps({"key": "value1"}).encode()).decode()
 CLOUD_SA_2 = base64.b64encode(json.dumps({"key": "value2"}).encode()).decode()
@@ -21,7 +21,7 @@ CLOUD_SA_2 = base64.b64encode(json.dumps({"key": "value2"}).encode()).decode()
 
 @pytest.fixture
 def harness():
-    harness = Harness(GcpCloudProviderCharm)
+    harness = Harness(GcpK8sStorageCharm)
     try:
         yield harness
     finally:
@@ -31,7 +31,7 @@ def harness():
 @pytest.fixture(autouse=True)
 def mock_ca_cert(tmpdir):
     ca_cert = Path(tmpdir) / "ca.crt"
-    with mock.patch.object(GcpCloudProviderCharm, "CA_CERT_PATH", ca_cert):
+    with mock.patch.object(GcpK8sStorageCharm, "CA_CERT_PATH", ca_cert):
         yield ca_cert
 
 
@@ -126,7 +126,7 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness, caplog):
             mock.call(charm.CA_CERT_PATH, "/home/ubuntu/.kube/config", "ubuntu", charm.unit.name),
         ]
     )
-    assert charm.unit.status == MaintenanceStatus("Deploying GCP Cloud Provider")
+    assert charm.unit.status == MaintenanceStatus("Deploying GCP Storage")
     storage_messages = {r.message for r in caplog.records if "storage" in r.filename}
 
     assert storage_messages == {

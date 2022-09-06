@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
-"""Dispatch logic for the gcp provider charm."""
+"""Dispatch logic for the gcp k8s storage charm."""
 
 import logging
 from pathlib import Path
@@ -21,7 +21,7 @@ from storage_manifests import GCPStorageManifests
 log = logging.getLogger(__name__)
 
 
-class GcpCloudProviderCharm(CharmBase):
+class GcpK8sStorageCharm(CharmBase):
     """Dispatch logic for the operator charm."""
 
     CA_CERT_PATH = Path("/srv/kubernetes/ca.crt")
@@ -40,7 +40,7 @@ class GcpCloudProviderCharm(CharmBase):
 
         self.CA_CERT_PATH.parent.mkdir(exist_ok=True)
         self.stored.set_default(
-            config_hash=None,  # hashed value of the provider config once valid
+            config_hash=None,  # hashed value of the config once valid
             deployed=False,  # True if the config has been applied after new hash
         )
         self.collector = Collector(
@@ -186,7 +186,7 @@ class GcpCloudProviderCharm(CharmBase):
     def _install_or_upgrade(self, _event=None):
         if not self.stored.config_hash:
             return
-        self.unit.status = MaintenanceStatus("Deploying GCP Cloud Provider")
+        self.unit.status = MaintenanceStatus("Deploying GCP Storage")
         self.unit.set_workload_version("")
         for controller in self.collector.manifests.values():
             controller.apply_manifests()
@@ -194,11 +194,11 @@ class GcpCloudProviderCharm(CharmBase):
 
     def _cleanup(self, _event):
         if self.stored.config_hash:
-            self.unit.status = MaintenanceStatus("Cleaning up GCP Cloud Provider")
+            self.unit.status = MaintenanceStatus("Cleaning up GCP Storage")
             for controller in self.collector.manifests.values():
                 controller.delete_manifests(ignore_unauthorized=True)
         self.unit.status = MaintenanceStatus("Shutting down")
 
 
 if __name__ == "__main__":
-    main(GcpCloudProviderCharm)
+    main(GcpK8sStorageCharm)

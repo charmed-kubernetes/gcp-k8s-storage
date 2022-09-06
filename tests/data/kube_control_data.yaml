@@ -12,9 +12,9 @@ cohort-keys: |-
   }
 creds: |-
   {
-    "gcp-cloud-provider/0": {
+    "gcp-k8s-storage/0": {
       "client_token": "admin::reacted",
-      "kubelet_token": "gcp-cloud-provider/0::reacted",
+      "kubelet_token": "gcp-k8s-storage/0::reacted",
       "proxy_token": "kube-proxy::reacted", 
       "scope": "kubernetes-worker/0"
     }

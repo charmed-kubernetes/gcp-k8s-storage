@@ -30,14 +30,6 @@ GH_COMMIT = "https://api.github.com/repos/{repo}/commits/{sha}"
 GH_PATH = "https://github.com/{repo}/{path}/?ref={branch}"
 
 SOURCES = dict(
-    # cloud_provider=dict(
-    #     repo="kubernetes/cloud-provider-aws",
-    #     assembled="kustomized.yaml",
-    #     release_tags=True,
-    #     path="examples/existing-cluster/base",
-    #     version_parser=VersionInfo.parse,
-    #     minimum="v1.22.0",
-    # ),
     cloud_storage=dict(
         repo="kubernetes-sigs/gcp-compute-persistent-disk-csi-driver",
         assembled="kustomized.yaml",
@@ -266,7 +258,7 @@ def get_argparser():
         type=str,
         help="Which manifest sources to be updated.\n\n"
         "example\n"
-        "  --source cloud_provider\n"
+        "  --source storage_provider\n"
         "\n",
     )
     return parser

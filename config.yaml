@@ -21,13 +21,13 @@ options:
       tags of https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver
 
       example)
-        juju config gcp-cloud-provider storage-release='v1.7.3'
+        juju config gcp-k8s-storage storage-release='v1.7.3'
       
       A list of supported versions is available through the action:
-        juju run-action gcp-cloud-provider/0 list-releases --wait
+        juju run-action gcp-k8s-storage/0 list-releases --wait
       
       To reset by to the latest supported by the charm use:
-        juju config gcp-cloud-provider --reset storage-release
+        juju config gcp-k8s-storage --reset storage-release
       
       The current release deployed is available by viewing
-        juju status gcp-cloud-provider
+        juju status gcp-k8s-storage
