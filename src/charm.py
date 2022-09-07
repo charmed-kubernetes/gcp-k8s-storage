@@ -85,6 +85,7 @@ class GcpK8sStorageCharm(CharmBase):
 
     def _request_gcp_features(self, event):
         self.integrator.enable_block_storage_management()
+        self.integrator.enable_instance_inspection()
         self._merge_config(event=event)
 
     def _update_status(self, _):

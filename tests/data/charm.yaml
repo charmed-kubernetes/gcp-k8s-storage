@@ -10,17 +10,19 @@ applications:
     trust: true
   gcp-k8s-storage:
     charm: {{charm}}
+    options:
+        image-registry: k8s.gcr.io
 relations:
 - - gcp-k8s-storage:certificates
   - easyrsa:client
 - - gcp-k8s-storage:kube-control
   - kubernetes-control-plane:kube-control
 - - gcp-k8s-storage:gcp-integration
-  - gcp-integrator:clients
+  - gcp-integrator:gcp
 
 
 # continue to use this until migrating the control-plane away from the in-tree one
-- - gcp-integrator:clients
+- - gcp-integrator:gcp
   - kubernetes-control-plane:gcp
-- - gcp-integrator:clients
+- - gcp-integrator:gcp
   - kubernetes-worker:gcp

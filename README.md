@@ -23,9 +23,9 @@ juju deploy gcp-k8s-storage
 
 juju relate gcp-k8s-storage:certificates     easyrsa
 juju relate gcp-k8s-storage:kube-control     kubernetes-control-plane
-juju relate gcp-k8s-storage                  gcp-integrator:clients
-juju relate kubernetes-control-plane         gcp-integrator:clients
-juju relate kubernetes-worker                gcp-integrator:clients
+juju relate gcp-k8s-storage                  gcp-integrator:gcp
+juju relate kubernetes-control-plane         gcp-integrator:gcp
+juju relate kubernetes-worker                gcp-integrator:gcp
 
 ##  wait for the kubernetes-control-plane to be active/idle
 kubectl describe nodes |egrep "Taints:|Name:|Provider"

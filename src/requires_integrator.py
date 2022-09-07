@@ -32,10 +32,10 @@ class Data(BaseModel):
     """Databag for information shared over the relation."""
 
     completed: Json[Mapping[str, str]]
-    credentials: SecretStr
+    credentials: Json[SecretStr]
 
     @validator("credentials")
-    def must_be_json(cls, s: SecretStr):
+    def must_be_json(cls, s: Json[SecretStr]):
         """Validate cloud-sa is base64 encoded json."""
         secret_val = s.get_secret_value()
         try:
@@ -151,6 +151,10 @@ class GCPIntegratorRequires(Object):
         if not self.is_ready:
             return None
         return base64.b64encode(self._data.credentials.get_secret_value().encode())
+
+    def enable_instance_inspection(self):
+        """Request the ability to manage block storage."""
+        self._request({"enable-instance-inspection": True})
 
     def enable_block_storage_management(self):
         """Request the ability to manage block storage."""

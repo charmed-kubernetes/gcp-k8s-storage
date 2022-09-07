@@ -18,11 +18,8 @@ class CharmConfig:
     @property
     def available_data(self):
         """Parse valid charm config into a dict, drop keys if unset."""
-        data = {}
-        for key, value in self.config.items():
-            data[key] = value
-
-        for key, value in dict(**data).items():
+        data = dict(**self.config)
+        for key, value in dict(**self.config).items():
             if value == "" or value is None:
                 del data[key]
 

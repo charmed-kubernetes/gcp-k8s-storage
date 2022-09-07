@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 from lightkube.codecs import from_dict
-from lightkube.resources.core_v1 import Node
 
 log = logging.getLogger(__name__)
 
@@ -40,11 +39,6 @@ async def test_build_and_deploy(ops_test):
     )
 
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
-
-
-async def test_provider_ids(kubernetes):
-    async for node in kubernetes.list(Node):
-        assert node.spec.providerID.startswith("gcp://")
 
 
 @pytest.fixture

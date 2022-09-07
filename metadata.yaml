@@ -3,7 +3,7 @@
 name: gcp-k8s-storage
 display-name: Google Cloud Platform Storage Driver
 summary: Runs the GCP Storage Driver in the kubernetes cluster.
-docs: https://discourse.charmhub.io/t/gcp-storage-driver-docs-index/???
+docs: https://discourse.charmhub.io/t/gcp-k8s-storage-docs-index/6996
 description: >-
   This charm manages installation of the out of tree csi driver from google
   kubernetes-sigs/gcp-compute-persistent-disk-csi-driver such that charmed
