@@ -1,6 +1,7 @@
 options:
   image-registry:
     type: string
+    default: k8s.gcr.io
     description: |
       Source registry of metrics server images.
 
@@ -10,7 +11,7 @@ options:
       If unset, the manifests will use the image registry from the kube-control relation
 
       example)
-        juju config kubernetes-metrics-server image-registry='rocks.canonical.com:443/cdk'
+        juju config kubernetes-metrics-server image-registry='k8s.gcr.io'
 
         juju config kubernetes-metrics-server --reset image-registry
 
