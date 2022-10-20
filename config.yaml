@@ -11,7 +11,7 @@ options:
       If unset, the manifests will use the image registry from the kube-control relation
 
       example)
-        juju config kubernetes-metrics-server image-registry=''
+        juju config gcp-k8s-storage image-registry=''
 
         juju config kubernetes-metrics-server --reset image-registry
 
