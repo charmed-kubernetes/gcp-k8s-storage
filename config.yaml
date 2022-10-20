@@ -1,8 +1,9 @@
 options:
   image-registry:
     type: string
+    default: k8s.gcr.io
     description: |
-      Source registry of metrics server images.
+      Source registry of GCP CSI storage images.
 
       By setting to a value, each image listed in the releases manifest
       has its image-registry replaced.
@@ -10,9 +11,9 @@ options:
       If unset, the manifests will use the image registry from the kube-control relation
 
       example)
-        juju config kubernetes-metrics-server image-registry='rocks.canonical.com:443/cdk'
+        juju config gcp-k8s-storage image-registry=''
 
-        juju config kubernetes-metrics-server --reset image-registry
+        juju config gcp-k8s-storage --reset image-registry
 
   storage-release:
     type: string
