@@ -203,11 +203,12 @@ class GcpK8sStorageCharm(CharmBase):
             try:
                 controller.apply_manifests()
             except ManifestClientError:
+                self.unit.status = WaitingStatus("Waiting for kube-apiserver")
                 event.defer()
                 return
         self.stored.deployed = True
 
-    def _cleanup(self, _event):
+    def _cleanup(self, event):
         if self.stored.config_hash:
             self.unit.status = MaintenanceStatus("Cleaning up GCP Storage")
             for controller in self.collector.manifests.values():
