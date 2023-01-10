@@ -10,7 +10,7 @@ from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.interface_kube_control import KubeControlRequirer
 from ops.main import main
-from ops.manifests import Collector
+from ops.manifests import Collector, ManifestClientError
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 
 from config import CharmConfig
@@ -63,6 +63,7 @@ class GcpK8sStorageCharm(CharmBase):
         self.framework.observe(self.on.list_versions_action, self._list_versions)
         self.framework.observe(self.on.list_resources_action, self._list_resources)
         self.framework.observe(self.on.scrub_resources_action, self._scrub_resources)
+        self.framework.observe(self.on.sync_resources_action, self._sync_resources)
         self.framework.observe(self.on.update_status, self._update_status)
 
         self.framework.observe(self.on.install, self._install_or_upgrade)
@@ -83,6 +84,15 @@ class GcpK8sStorageCharm(CharmBase):
         resources = event.params.get("resources", "")
         return self.collector.scrub_resources(event, manifests, resources)
 
+    def _sync_resources(self, event):
+        manifests = event.params.get("controller", "")
+        resources = event.params.get("resources", "")
+        try:
+            self.collector.apply_missing_resources(event, manifests, resources)
+        except ManifestClientError:
+            msg = "Failed to apply missing resources. API Server unavailable."
+            event.set_results({"result": msg})
+
     def _request_gcp_features(self, event):
         self.integrator.enable_block_storage_management()
         self.integrator.enable_instance_inspection()
@@ -100,7 +110,7 @@ class GcpK8sStorageCharm(CharmBase):
             self.unit.set_workload_version(self.collector.short_version)
             self.app.status = ActiveStatus(self.collector.long_version)
 
-    def _kube_control(self, event=None):
+    def _kube_control(self, event):
         self.kube_control.set_auth_request(self.unit.name)
         return self._merge_config(event)
 
@@ -155,7 +165,7 @@ class GcpK8sStorageCharm(CharmBase):
             return False
         return True
 
-    def _merge_config(self, event=None):
+    def _merge_config(self, event):
         if not self._check_integrator(event):
             return
 
@@ -182,22 +192,32 @@ class GcpK8sStorageCharm(CharmBase):
 
         self.stored.config_hash = new_hash
         self.stored.deployed = False
-        self._install_or_upgrade()
+        self._install_or_upgrade(event)
 
-    def _install_or_upgrade(self, _event=None):
+    def _install_or_upgrade(self, event):
         if not self.stored.config_hash:
             return
         self.unit.status = MaintenanceStatus("Deploying GCP Storage")
         self.unit.set_workload_version("")
         for controller in self.collector.manifests.values():
-            controller.apply_manifests()
+            try:
+                controller.apply_manifests()
+            except ManifestClientError:
+                self.unit.status = WaitingStatus("Waiting for kube-apiserver")
+                event.defer()
+                return
         self.stored.deployed = True
 
-    def _cleanup(self, _event):
+    def _cleanup(self, event):
         if self.stored.config_hash:
             self.unit.status = MaintenanceStatus("Cleaning up GCP Storage")
             for controller in self.collector.manifests.values():
-                controller.delete_manifests(ignore_unauthorized=True)
+                try:
+                    controller.delete_manifests(ignore_unauthorized=True)
+                except ManifestClientError:
+                    self.unit.status = WaitingStatus("Waiting for kube-apiserver")
+                    event.defer()
+                    return
         self.unit.status = MaintenanceStatus("Shutting down")
 
 
