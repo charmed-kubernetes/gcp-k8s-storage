@@ -61,12 +61,13 @@ def kube_control():
         kube_control.get_registry_location.return_value = "rocks.canonical.com/cdk"
         kube_control.get_controller_taints.return_value = []
         kube_control.get_controller_labels.return_value = []
+        kube_control.get_ca_certificate.return_value = None
         kube_control.relation.app.name = "kubernetes-control-plane"
         kube_control.relation.units = [f"kubernetes-control-plane/{_}" for _ in range(2)]
         yield kube_control
 
 
-@pytest.mark.usefixtures("integrator")
+@pytest.mark.usefixtures("integrator", "kube_control")
 def test_waits_for_certificates(harness):
     harness.begin_with_initial_hooks()
     charm = harness.charm
@@ -89,8 +90,8 @@ def test_waits_for_certificates(harness):
         "easyrsa/0",
         yaml.safe_load(Path("tests/data/certificates_data.yaml").read_text()),
     )
-    assert isinstance(charm.unit.status, BlockedStatus)
-    assert charm.unit.status.message == "Missing required kube-control relation"
+    assert isinstance(charm.unit.status, MaintenanceStatus)
+    assert charm.unit.status.message == "Deploying GCP Storage"
 
 
 @mock.patch("ops.interface_kube_control.KubeControlRequirer.create_kubeconfig")

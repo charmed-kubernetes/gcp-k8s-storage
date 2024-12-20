@@ -6,33 +6,30 @@
 import logging
 from pathlib import Path
 
-from ops.charm import CharmBase
-from ops.framework import StoredState
+import ops
 from ops.interface_kube_control import KubeControlRequirer
-from ops.main import main
+from ops.interface_tls_certificates import CertificatesRequires
 from ops.manifests import Collector, ManifestClientError
-from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 
 from config import CharmConfig
-from requires_certificates import CertificatesRequires
 from requires_integrator import GCPIntegratorRequires
 from storage_manifests import GCPStorageManifests
 
 log = logging.getLogger(__name__)
 
 
-class GcpK8sStorageCharm(CharmBase):
+class GcpK8sStorageCharm(ops.CharmBase):
     """Dispatch logic for the operator charm."""
 
     CA_CERT_PATH = Path("/srv/kubernetes/ca.crt")
 
-    stored = StoredState()
+    stored = ops.StoredState()
 
     def __init__(self, *args):
         super().__init__(*args)
 
         # Relation Validator and datastore
-        self.kube_control = KubeControlRequirer(self)
+        self.kube_control = KubeControlRequirer(self, schemas="0,1")
         self.certificates = CertificatesRequires(self)
         self.integrator = GCPIntegratorRequires(self)
         # Config Validator and datastore
@@ -104,38 +101,38 @@ class GcpK8sStorageCharm(CharmBase):
 
         unready = self.collector.unready
         if unready:
-            self.unit.status = WaitingStatus(", ".join(unready))
+            self.unit.status = ops.WaitingStatus(", ".join(unready))
         else:
-            self.unit.status = ActiveStatus("Ready")
+            self.unit.status = ops.ActiveStatus("Ready")
             self.unit.set_workload_version(self.collector.short_version)
-            self.app.status = ActiveStatus(self.collector.long_version)
+            self.app.status = ops.ActiveStatus(self.collector.long_version)
 
     def _kube_control(self, event):
-        self.kube_control.set_auth_request(self.unit.name)
+        self.kube_control.set_auth_request(self.unit.name, "system:masters")
         return self._merge_config(event)
 
     def _check_integrator(self, event):
-        self.unit.status = MaintenanceStatus("Evaluating GCP relation.")
+        self.unit.status = ops.MaintenanceStatus("Evaluating GCP relation.")
         evaluation = self.integrator.evaluate_relation(event)
         if evaluation:
             if "Waiting" in evaluation:
-                self.unit.status = WaitingStatus(evaluation)
+                self.unit.status = ops.WaitingStatus(evaluation)
             else:
-                self.unit.status = BlockedStatus(evaluation)
+                self.unit.status = ops.BlockedStatus(evaluation)
             return False
         return True
 
     def _check_kube_control(self, event):
-        self.unit.status = MaintenanceStatus("Evaluating kubernetes authentication.")
+        self.unit.status = ops.MaintenanceStatus("Evaluating kubernetes authentication.")
         evaluation = self.kube_control.evaluate_relation(event)
         if evaluation:
             if "Waiting" in evaluation:
-                self.unit.status = WaitingStatus(evaluation)
+                self.unit.status = ops.WaitingStatus(evaluation)
             else:
-                self.unit.status = BlockedStatus(evaluation)
+                self.unit.status = ops.BlockedStatus(evaluation)
             return False
         if not self.kube_control.get_auth_credentials(self.unit.name):
-            self.unit.status = WaitingStatus("Waiting for kube-control: unit credentials")
+            self.unit.status = ops.WaitingStatus("Waiting for kube-control: unit credentials")
             return False
         self.kube_control.create_kubeconfig(
             self.CA_CERT_PATH, "/root/.kube/config", "root", self.unit.name
@@ -146,22 +143,26 @@ class GcpK8sStorageCharm(CharmBase):
         return True
 
     def _check_certificates(self, event):
-        self.unit.status = MaintenanceStatus("Evaluating certificates.")
+        if self.kube_control.get_ca_certificate():
+            log.info("CA Certificate is available from kube-control.")
+            return True
+
+        self.unit.status = ops.MaintenanceStatus("Evaluating certificates.")
         evaluation = self.certificates.evaluate_relation(event)
         if evaluation:
             if "Waiting" in evaluation:
-                self.unit.status = WaitingStatus(evaluation)
+                self.unit.status = ops.WaitingStatus(evaluation)
             else:
-                self.unit.status = BlockedStatus(evaluation)
+                self.unit.status = ops.BlockedStatus(evaluation)
             return False
         self.CA_CERT_PATH.write_text(self.certificates.ca)
         return True
 
     def _check_config(self):
-        self.unit.status = MaintenanceStatus("Evaluating charm config.")
+        self.unit.status = ops.MaintenanceStatus("Evaluating charm config.")
         evaluation = self.charm_config.evaluate()
         if evaluation:
-            self.unit.status = BlockedStatus(evaluation)
+            self.unit.status = ops.BlockedStatus(evaluation)
             return False
         return True
 
@@ -178,12 +179,12 @@ class GcpK8sStorageCharm(CharmBase):
         if not self._check_config():
             return
 
-        self.unit.status = MaintenanceStatus("Evaluating Manifests")
+        self.unit.status = ops.MaintenanceStatus("Evaluating Manifests")
         new_hash = 0
         for controller in self.collector.manifests.values():
             evaluation = controller.evaluate()
             if evaluation:
-                self.unit.status = BlockedStatus(evaluation)
+                self.unit.status = ops.BlockedStatus(evaluation)
                 return
             new_hash += controller.hash()
 
@@ -197,30 +198,30 @@ class GcpK8sStorageCharm(CharmBase):
             log.info("Skipping until the config is evaluated.")
             return True
 
-        self.unit.status = MaintenanceStatus("Deploying GCP Storage")
+        self.unit.status = ops.MaintenanceStatus("Deploying GCP Storage")
         self.unit.set_workload_version("")
         for controller in self.collector.manifests.values():
             try:
                 controller.apply_manifests()
             except ManifestClientError as e:
-                self.unit.status = WaitingStatus("Waiting for kube-apiserver")
-                log.warn(f"Encountered retryable installation error: {e}")
+                self.unit.status = ops.WaitingStatus("Waiting for kube-apiserver")
+                log.warning("Encountered retryable installation error: %s", e)
                 event.defer()
                 return False
         return True
 
     def _cleanup(self, event):
         if self.stored.config_hash:
-            self.unit.status = MaintenanceStatus("Cleaning up GCP Storage")
+            self.unit.status = ops.MaintenanceStatus("Cleaning up GCP Storage")
             for controller in self.collector.manifests.values():
                 try:
                     controller.delete_manifests(ignore_unauthorized=True)
                 except ManifestClientError:
-                    self.unit.status = WaitingStatus("Waiting for kube-apiserver")
+                    self.unit.status = ops.WaitingStatus("Waiting for kube-apiserver")
                     event.defer()
                     return
-        self.unit.status = MaintenanceStatus("Shutting down")
+        self.unit.status = ops.MaintenanceStatus("Shutting down")
 
 
 if __name__ == "__main__":
-    main(GcpK8sStorageCharm)
+    ops.main(GcpK8sStorageCharm)
