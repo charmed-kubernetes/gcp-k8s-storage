@@ -51,13 +51,13 @@ jobs:
         run: |
           sg lxd -c 'charmcraft pack -v'
       - name: Upload charm artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: gcp-k8s-storage.charm
           path: ./gcp-k8s-storage*.charm
       - name: Upload debug artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: charmcraft-logs
           path: /home/runner/snap/charmcraft/common/cache/charmcraft/log/charmcraft-*.log
