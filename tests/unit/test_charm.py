@@ -8,9 +8,9 @@ import json
 import unittest.mock as mock
 from pathlib import Path
 
+import ops
 import pytest
 import yaml
-from ops.model import BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.testing import Harness
 
 from charm import GcpK8sStorageCharm
@@ -61,17 +61,20 @@ def kube_control():
         kube_control.get_registry_location.return_value = "rocks.canonical.com/cdk"
         kube_control.get_controller_taints.return_value = []
         kube_control.get_controller_labels.return_value = []
+        kube_control.get_ca_certificate.return_value = None
         kube_control.relation.app.name = "kubernetes-control-plane"
         kube_control.relation.units = [f"kubernetes-control-plane/{_}" for _ in range(2)]
         yield kube_control
 
 
-@pytest.mark.usefixtures("integrator")
-def test_waits_for_certificates(harness):
+@pytest.mark.usefixtures("integrator", "kube_control")
+def test_waits_for_certificates(harness: Harness):
     harness.begin_with_initial_hooks()
     charm = harness.charm
-    assert isinstance(charm.unit.status, BlockedStatus)
-    assert charm.unit.status.message == "Missing required certificates"
+    assert charm.unit.status, ops.BlockedStatus("Missing required gcp-integration")
+
+    rel_id = harness.add_relation("gcp-integration", "gcp-integrator")
+    assert charm.unit.status == ops.BlockedStatus("Missing required certificates")
 
     # Test adding the certificates relation
     rel_cls = type(charm.certificates)
@@ -79,18 +82,15 @@ def test_waits_for_certificates(harness):
     rel_cls._data = property(rel_cls._data.func)
     rel_cls._raw_data = property(rel_cls._raw_data.func)
     rel_id = harness.add_relation("certificates", "easyrsa")
-    assert isinstance(charm.unit.status, WaitingStatus)
-    assert charm.unit.status.message == "Waiting for certificates"
+    assert charm.unit.status == ops.WaitingStatus("Waiting for certificates")
     harness.add_relation_unit(rel_id, "easyrsa/0")
-    assert isinstance(charm.unit.status, WaitingStatus)
-    assert charm.unit.status.message == "Waiting for certificates"
+    assert charm.unit.status == ops.WaitingStatus("Waiting for certificates")
     harness.update_relation_data(
         rel_id,
         "easyrsa/0",
         yaml.safe_load(Path("tests/data/certificates_data.yaml").read_text()),
     )
-    assert isinstance(charm.unit.status, BlockedStatus)
-    assert charm.unit.status.message == "Missing required kube-control relation"
+    assert charm.unit.status == ops.MaintenanceStatus("Deploying GCP Storage")
 
 
 @mock.patch("ops.interface_kube_control.KubeControlRequirer.create_kubeconfig")
@@ -98,7 +98,9 @@ def test_waits_for_certificates(harness):
 def test_waits_for_kube_control(mock_create_kubeconfig, harness, caplog):
     harness.begin_with_initial_hooks()
     charm = harness.charm
-    assert isinstance(charm.unit.status, BlockedStatus)
+    assert charm.unit.status, ops.BlockedStatus("Missing required gcp-integration")
+    rel_id = harness.add_relation("gcp-integration", "gcp-integrator")
+
     assert charm.unit.status.message == "Missing required kube-control relation"
 
     # Add the kube-control relation
@@ -106,12 +108,10 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness, caplog):
     rel_cls.relation = property(rel_cls.relation.func)
     rel_cls._data = property(rel_cls._data.func)
     rel_id = harness.add_relation("kube-control", "kubernetes-control-plane")
-    assert isinstance(charm.unit.status, WaitingStatus)
-    assert charm.unit.status.message == "Waiting for kube-control relation"
+    assert charm.unit.status == ops.WaitingStatus("Waiting for kube-control relation")
 
     harness.add_relation_unit(rel_id, "kubernetes-control-plane/0")
-    assert isinstance(charm.unit.status, WaitingStatus)
-    assert charm.unit.status.message == "Waiting for kube-control relation"
+    assert charm.unit.status == ops.WaitingStatus("Waiting for kube-control relation")
     mock_create_kubeconfig.assert_not_called()
 
     caplog.clear()
@@ -123,10 +123,15 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness, caplog):
     mock_create_kubeconfig.assert_has_calls(
         [
             mock.call(charm.CA_CERT_PATH, "/root/.kube/config", "root", charm.unit.name),
-            mock.call(charm.CA_CERT_PATH, "/home/ubuntu/.kube/config", "ubuntu", charm.unit.name),
+            mock.call(
+                charm.CA_CERT_PATH,
+                "/home/ubuntu/.kube/config",
+                "ubuntu",
+                charm.unit.name,
+            ),
         ]
     )
-    assert charm.unit.status == MaintenanceStatus("Deploying GCP Storage")
+    assert charm.unit.status == ops.MaintenanceStatus("Deploying GCP Storage")
     storage_messages = {r.message for r in caplog.records if "storage" in r.filename}
 
     assert storage_messages == {

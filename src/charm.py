@@ -9,12 +9,12 @@ from pathlib import Path
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.interface_kube_control import KubeControlRequirer
+from ops.interface_tls_certificates import CertificatesRequires
 from ops.main import main
 from ops.manifests import Collector, ManifestClientError
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 
 from config import CharmConfig
-from requires_certificates import CertificatesRequires
 from requires_integrator import GCPIntegratorRequires
 from storage_manifests import GCPStorageManifests
 
@@ -32,7 +32,7 @@ class GcpK8sStorageCharm(CharmBase):
         super().__init__(*args)
 
         # Relation Validator and datastore
-        self.kube_control = KubeControlRequirer(self)
+        self.kube_control = KubeControlRequirer(self, schemas="0,1")
         self.certificates = CertificatesRequires(self)
         self.integrator = GCPIntegratorRequires(self)
         # Config Validator and datastore
@@ -111,7 +111,7 @@ class GcpK8sStorageCharm(CharmBase):
             self.app.status = ActiveStatus(self.collector.long_version)
 
     def _kube_control(self, event):
-        self.kube_control.set_auth_request(self.unit.name)
+        self.kube_control.set_auth_request(self.unit.name, "system:masters")
         return self._merge_config(event)
 
     def _check_integrator(self, event):
@@ -126,6 +126,10 @@ class GcpK8sStorageCharm(CharmBase):
         return True
 
     def _check_kube_control(self, event):
+        if self.kube_control.get_ca_certificate():
+            log.info("CA Certificate is available from kube-control.")
+            return True
+
         self.unit.status = MaintenanceStatus("Evaluating kubernetes authentication.")
         evaluation = self.kube_control.evaluate_relation(event)
         if evaluation:
@@ -146,6 +150,10 @@ class GcpK8sStorageCharm(CharmBase):
         return True
 
     def _check_certificates(self, event):
+        if self.kube_control.get_ca_certificate():
+            log.info("CA Certificate is available from kube-control.")
+            return True
+
         self.unit.status = MaintenanceStatus("Evaluating certificates.")
         evaluation = self.certificates.evaluate_relation(event)
         if evaluation:
@@ -169,10 +177,10 @@ class GcpK8sStorageCharm(CharmBase):
         if not self._check_integrator(event):
             return
 
-        if not self._check_certificates(event):
+        if not self._check_kube_control(event):
             return
 
-        if not self._check_kube_control(event):
+        if not self._check_certificates(event):
             return
 
         if not self._check_config():
@@ -204,7 +212,7 @@ class GcpK8sStorageCharm(CharmBase):
                 controller.apply_manifests()
             except ManifestClientError as e:
                 self.unit.status = WaitingStatus("Waiting for kube-apiserver")
-                log.warn(f"Encountered retryable installation error: {e}")
+                log.warning(f"Encountered retryable installation error: {e}")
                 event.defer()
                 return False
         return True
