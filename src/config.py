@@ -12,7 +12,7 @@ class CharmConfig:
     """Representation of the charm configuration."""
 
     def __init__(self, charm):
-        """Creates a CharmConfig object from the configuration data."""
+        """Create a CharmConfig object from the configuration data."""
         self.config = charm.config
 
     @property

@@ -2,6 +2,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 """Update to a new upstream release."""
+
 import argparse
 import contextlib
 import json
@@ -72,11 +73,11 @@ class Release:
     path: str
 
     def __hash__(self) -> int:
-        """Unique based on its name."""
+        """Create uniqueness by name."""
         return hash(self.name)
 
     def __eq__(self, other) -> bool:
-        """Comparable based on its name."""
+        """Compare based on its name."""
         return isinstance(other, Release) and self.name == other.name
 
     def __lt__(self, other) -> bool:
@@ -101,23 +102,23 @@ class SyncConfig(TypedDict):
 
 
 def sync_asset(image: str, registry: Registry):
-    """Factory for generating SyncAssets."""
+    """Create SyncAsset from image and register."""
     _, tag = image.split("/", 1)
     dest = f"{registry.name}/{registry.path.strip('/')}/{tag}"
     return SyncAsset(source=image, target=dest, type="image")
 
 
 def main(source: str, registry: Optional[Registry]):
-    """Main update logic."""
+    """Run main update logic."""
     local_releases = gather_current(source)
     gh_releases = gather_releases(source)
     new_releases = gh_releases - local_releases
     for release in new_releases:
         local_releases.add(download(source, release))
     unique_releases = list(dict.fromkeys(accumulate((sorted(local_releases)), dedupe)))
-    all_images = set(image for release in unique_releases for image in images(release))
+    all_images = {image for release in unique_releases for image in images(release)}
     if registry:
-        mirror_image(all_images, registry)
+        mirror_image(list(all_images), registry)
     return unique_releases[-1].name, all_images
 
 
@@ -151,11 +152,11 @@ def gather_releases(source: str) -> Tuple[str, Set[Release]]:
 def gather_current(source: str) -> Set[Release]:
     """Gather currently supported manifests by the charm."""
     manifests = SOURCES[source]["assembled"]
-    releases = dict()
+    releases = {}
     for release_path in (FILEDIR / source / "manifests").glob("*/*.yaml"):
         if release_path.name in manifests:
             releases[release_path.parent.name] = release_path
-    return set(Release(version, files) for version, files in releases.items())
+    return {Release(version, files) for version, files in releases.items()}
 
 
 @contextlib.contextmanager
@@ -256,10 +257,7 @@ def get_argparser():
         default=list(SOURCES.keys()),
         choices=SOURCES.keys(),
         type=str,
-        help="Which manifest sources to be updated.\n\n"
-        "example\n"
-        "  --source storage_provider\n"
-        "\n",
+        help="Which manifest sources to be updated.\n\nexample\n  --source storage_provider\n\n",
     )
     return parser
 

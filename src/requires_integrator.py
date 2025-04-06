@@ -5,6 +5,7 @@
 This only implements the requires side, currently, since the providers
 is still using the Reactive Charm framework self.
 """
+
 import base64
 import json
 import logging
@@ -76,7 +77,7 @@ class GCPIntegratorRequires(Object):
 
     @cached_property
     def relation(self):
-        """The relation to the integrator, or None."""
+        """Return either the relation to the integrator, or None."""
         return self.model.get_relation(self.endpoint)
 
     @cached_property
@@ -103,7 +104,7 @@ class GCPIntegratorRequires(Object):
 
     @property
     def instance(self):
-        """This unit's instance name."""
+        """Returns unit's instance name."""
         if self.stored.instance is None:
             req = Request(self._instance_url, headers=self._metadata_headers)
             with urlopen(req) as fd:

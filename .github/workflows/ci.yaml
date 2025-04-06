@@ -8,7 +8,7 @@ on:
 jobs:
   call-inclusive-naming-check:
     name: Inclusive Naming
-    uses: canonical-web-and-design/Inclusive-naming/.github/workflows/woke.yaml@main
+    uses: canonical/inclusive-naming/.github/workflows/woke.yaml@main
     with:
       fail-on-error: "true"
 
@@ -16,19 +16,30 @@ jobs:
     name: Lint Unit
     uses: charmed-kubernetes/workflows/.github/workflows/lint-unit.yaml@main
     with:
-       python: "['3.8', '3.9', '3.10']"
-    needs: 
+      with-uv: true
+      python: "['3.10', '3.12']"
+    needs:
       - call-inclusive-naming-check
+
+  charmcraft-channel:
+    runs-on: ubuntu-24.04
+    outputs:
+      channel: ${{ steps.charmcraft.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: charmcraft
+        run: echo "channel=$(cat .charmcraft-channel)" >> $GITHUB_OUTPUT
 
   charmcraft-build:
     name: Build Charm
+    needs: [charmcraft-channel]
     runs-on: ubuntu-22.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install and prepare LXD snap environment
         run: |
-          sudo apt-get remove -qy lxd lxd-client | true
+          sudo apt-get remove -qy lxd | true
           sudo snap list lxd | true
           sudo snap install lxd --channel=latest/stable
           sudo snap refresh lxd --channel=latest/stable
@@ -40,13 +51,12 @@ jobs:
           sg lxd -c 'lxc version'
       - name: Remove Docker
         run: |
-          # https://github.com/canonical/lxd-cloud/blob/f20a64a8af42485440dcbfd370faf14137d2f349/test/includes/lxd.sh#L13-L23
           sudo rm -rf /etc/docker
           sudo apt-get purge moby-buildx moby-engine moby-cli moby-compose moby-containerd moby-runc -y
           sudo iptables -P FORWARD ACCEPT
       - name: Install Charmcraft
         run: |
-          sudo snap install charmcraft --classic --channel=latest/stable
+          sudo snap install charmcraft --classic --channel=${{ needs.charmcraft-channel.outputs.channel }}
       - name: Build Charm
         run: |
           sg lxd -c 'charmcraft pack -v'
