@@ -1,28 +1,148 @@
 # Learn more about charmcraft.yaml configuration at:
 # https://juju.is/docs/sdk/charmcraft-config
 
+type: "charm"
+
+name: gcp-k8s-storage
+title: Google Cloud Platform Storage Driver
+summary: Runs the GCP Storage Driver in the kubernetes cluster.
+description: >-
+  This charm manages installation of the out of tree csi driver from google
+  kubernetes-sigs/gcp-compute-persistent-disk-csi-driver such that charmed
+  kubernetes can use its storage features.
+links:
+  contact: https://launchpad.net/~containers
+  source:
+  - https://github.com/charmed-kubernetes/aws-gcp-storage
+  issues:
+  - https://bugs.launchpad.net/charm-gcp-k8s-storage
+  documentation: https://discourse.charmhub.io/t/gcp-k8s-storage-docs-index/6996
+
+subordinate: true
+
+config:
+  options:
+    image-registry:
+      type: string
+      default: k8s.gcr.io
+      description: |
+        Source registry of GCP CSI storage images.
+
+        By setting to a value, each image listed in the releases manifest
+        has its image-registry replaced.
+
+        If unset, the manifests will use the image registry from the kube-control relation
+
+        example)
+          juju config gcp-k8s-storage image-registry=''
+
+          juju config gcp-k8s-storage --reset image-registry
+
+    storage-release:
+      type: string
+      description: |
+        Specify the version of storage-provider as defined by the `release`
+        tags of https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver
+
+        example)
+          juju config gcp-k8s-storage storage-release='v1.7.3'
+        
+        A list of supported versions is available through the action:
+          juju run-action gcp-k8s-storage/0 list-releases --wait
+        
+        To reset by to the latest supported by the charm use:
+          juju config gcp-k8s-storage --reset storage-release
+        
+        The current release deployed is available by viewing
+          juju status gcp-k8s-storage
+
+actions:
+  list-versions:
+    description: List Storage Versions supported by this charm
+  list-resources:
+    description: List Storage Resources of configured version
+    params:
+      controller:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "storage" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types to filter list result
+  scrub-resources:
+    description: Remove deployments other than the current one
+    params:
+      controller:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "storage" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types to filter scrubbing   
+  sync-resources:
+    description: |
+      Add kubernetes resources which should be created by this charm which aren't
+      present within the cluster.
+    params:
+      controller:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "storage" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types
+          to use a filter during the sync. This helps limit
+          which missing resources are applied.
+
+requires:
+  gcp-integration:
+    interface: gcp-integration
+    scope: container
+    limit: 1
+  kube-control:
+    interface: kube-control
+    limit: 1
+  certificates:
+    interface: tls-certificates
+
 # Architectures based on supported arch's in upstream
 # https://github.com/kubernetes-sigs/gcp-compute-persistent-disk-csi-driver/blob/master/Makefile
-type: "charm"
 bases:
   - build-on:
     - name: "ubuntu"
-      channel: "20.04"
+      channel: "22.04"
       architectures: ["amd64"]
     run-on:
-    - name: "ubuntu"
-      channel: "20.04"
-      architectures:
-        - amd64
-        - arm64
     - name: "ubuntu"
       channel: "22.04"
       architectures:
         - amd64
         - arm64
+    - name: "ubuntu"
+      channel: "24.04"
+      architectures:
+        - amd64
+        - arm64
 parts:
   charm:
-    build-packages: [git]
-    charm-python-packages: [setuptools, pip]
+    source: .
+    plugin: charm
+    override-build: |
+      craftctl default
+      git -C $CRAFT_PROJECT_DIR rev-parse --short HEAD > version
+    build-packages:
+    - git
+    charm-python-packages:
+    - setuptools
+    - pip
     prime:
-      - upstream/**
+    - upstream/**
