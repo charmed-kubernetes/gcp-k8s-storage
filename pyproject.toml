@@ -44,3 +44,6 @@ ignore_missing_imports = true
 
 [tool.codespell]
 skip = ".git,.tox,build,lib,venv,htmlcov,.mypy_cache,icon.svg,.ruff_cache,.coverage,*.yaml"
+
+[tool.bandit]
+exclude_dirs = [".tox", ".venv", "venv"]
